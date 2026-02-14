@@ -16,6 +16,7 @@
  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;font:12px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial}
  .error{position:fixed;inset:auto 10px 70px 10px;background:#260015;color:#ffd9f7;border:1px solid #ff8ae5;border-radius:10px;padding:10px;font:12px system-ui;display:none;}
  </style>
+ <!-- CARGA DE LIBRERIAS ORIGINALES -->
  <script src="https://cdn.jsdelivr.net"></script>
  <script src="https://cdn.jsdelivr.net"></script>
 </head>
@@ -40,13 +41,15 @@ function showError(msg){ err.textContent = msg; err.style.display='block'; }
 const audio = document.getElementById('audio');
 const playBtn = document.getElementById('playBtn');
 
+// Control de Audio
 playBtn.onclick = async () => {
  try { 
   if (audio.paused) { await audio.play(); playBtn.textContent='⏸'; } 
   else { audio.pause(); playBtn.textContent='▶'; } 
- } catch(e){ showError('Haz clic en la galaxia para activar el sonido.'); }
+ } catch(e){ showError('Haz clic en la pantalla primero.'); }
 };
 
+// Activar sonido con el primer clic para la galaxia
 document.addEventListener('click', () => {
     if(audio.paused) {
         audio.play().catch(()=>{});
@@ -54,75 +57,105 @@ document.addEventListener('click', () => {
     }
 }, {once: true});
 
-// ====== LÓGICA COMPLETA DE LA GALAXIA ======
+// ====== RENDERIZADO DE LA GALAXIA (RESTAURADO) ======
 try {
 const canvas = document.getElementById('galaxy-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
-renderer.setPixelRatio(window.devicePixelRatio || 1);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
-camera.position.set(0, 22, 75);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+controls.minDistance = 10; controls.maxDistance = 220;
 
-// Estrellas de fondo
-const starGeo = new THREE.BufferGeometry();
-const starPos = new Float32Array(8000 * 3);
-for(let i=0; i<8000*3; i++) starPos[i] = (Math.random() - 0.5) * 1000;
-starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xffffff, size: 0.5})));
+function setCam(){
+ const w = window.innerWidth, h = window.innerHeight;
+ const isMobile = w < 768 || w < h;
+ camera.position.set(0, isMobile? 26 : 22, isMobile? 110 : 75);
+ camera.updateProjectionMatrix();
+} setCam();
 
-const galaxy = new THREE.Group();
-scene.add(galaxy);
+// Estrellas de fondo reales
+function makePrettyStarTexture(size=1024, count=2600) {
+ const c = document.createElement('canvas'); c.width = c.height = size;
+ const g = c.getContext('2d');
+ g.fillStyle = '#000'; g.fillRect(0,0,size,size);
+ for (let i=0;i<count;i++) {
+  const x = Math.random()*size, y = Math.random()*size;
+  g.fillStyle = 'rgba(255,255,255,'+(Math.random()*0.8)+')';
+  g.beginPath(); g.arc(x,y, Math.random()*1.2+0.6, 0, Math.PI*2); g.fill();
+ }
+ return new THREE.CanvasTexture(c);
+}
+const bgGeo = new THREE.SphereGeometry(600, 64, 64);
+const starTex = makePrettyStarTexture();
+const bg = new THREE.Mesh(bgGeo, new THREE.MeshBasicMaterial({ map: starTex, side: THREE.BackSide }));
+scene.add(bg);
+
+// Frases en espiral (Lógica del PDF original)
+const galaxy = new THREE.Group(); scene.add(galaxy);
 const phrases = ["Pinchecha", "Hermosa", "Mi Bebe", "Mi Cielito", "Hermosota", "Te Amo", "Mi Reina", "Mi Amor", "Te Amo Infinitamente"];
+const phraseCount = 180;
+const arms = 5, radius = 82;
 
-function makeText(txt) {
-    const c = document.createElement('canvas'); c.width = 512; c.height = 64;
-    const g = c.getContext('2d');
-    g.font = 'bold 32px Arial'; g.fillStyle = 'white'; g.textAlign = 'center';
-    g.fillText(txt, 256, 40);
-    return new THREE.CanvasTexture(c);
+function makeTextTexture(text){
+ const c=document.createElement('canvas'); c.width=1024; c.height=128;
+ const g=c.getContext('2d');
+ g.font='800 48px Arial'; g.textAlign='center'; g.textBaseline='middle';
+ g.fillStyle='#fff'; g.shadowColor='rgba(210,140,255,0.95)'; g.shadowBlur=24;
+ g.fillText(text,512,64);
+ return new THREE.CanvasTexture(c);
 }
 
-for(let i=0; i<180; i++) {
-    const mat = new THREE.SpriteMaterial({ map: makeText(phrases[i % phrases.length]), transparent: true });
-    const sp = new THREE.Sprite(mat);
-    const ang = i * 0.2; const dist = Math.pow(i/180, 0.72) * 82;
-    sp.position.set(Math.cos(ang)*dist, (Math.random()-0.5)*10, Math.sin(ang)*dist);
-    sp.scale.set(18, 2.5, 1);
-    galaxy.add(sp);
+for(let i=0;i<phraseCount;i++){
+ const tex=makeTextTexture(phrases[i%phrases.length]);
+ const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthWrite:false }));
+ const perArm = phraseCount/arms;
+ const ang = (i%perArm)*(Math.PI*2/perArm);
+ const armAng = Math.floor(i/perArm)*(Math.PI*2/arms);
+ const dist = Math.pow(i/phraseCount,0.72)*radius;
+ spr.position.set(Math.cos(ang+armAng)*dist, (Math.random()-0.5)*10, Math.sin(ang+armAng)*dist);
+ spr.scale.set(20,2.6,1); galaxy.add(spr);
 }
+
+// Núcleo de la galaxia
+const core = new THREE.Mesh(new THREE.SphereGeometry(12,64,64), new THREE.MeshBasicMaterial({ color: 0x140018 }));
+scene.add(core);
 
 function animate(){
-    requestAnimationFrame(animate);
-    galaxy.rotation.y += 0.002;
-    controls.update();
-    renderer.render(scene, camera);
+ requestAnimationFrame(animate);
+ const t = performance.now()*0.001;
+ galaxy.rotation.y = t * 0.05;
+ controls.update();
+ renderer.render(scene, camera);
 } animate();
 
-// Corazones al hacer clic
+// Efecto de corazones
 const fx = document.getElementById('fx');
-const ctx = fx.getContext('2d');
+const ctx2 = fx.getContext('2d');
 const hearts = [];
-function resize(){ fx.width = innerWidth; fx.height = innerHeight; }
-window.onresize = resize; resize();
+function resizeFx(){ fx.width = innerWidth; fx.height = innerHeight; }
+addEventListener('resize', resizeFx); resizeFx();
 
-addEventListener('click', (e) => {
-    for(let i=0; i<10; i++) hearts.push({x:e.clientX, y:e.clientY, vx:(Math.random()-0.5)*4, vy:(Math.random()-1)*4, l:1});
+addEventListener('click', (e)=>{
+ for(let i=0;i<12;i++) hearts.push({x:e.clientX, y:e.clientY, vx:(Math.random()-0.5)*5, vy:(Math.random()-1)*5, life:1});
 });
 
-function draw(){
-    ctx.clearRect(0,0,fx.width,fx.height);
-    for(let i=hearts.length-1; i>=0; i--){
-        const h = hearts[i]; h.x+=h.vx; h.y+=h.vy; h.l-=0.02;
-        ctx.font = "20px Arial"; ctx.globalAlpha = h.l;
-        ctx.fillText("❤️", h.x, h.y);
-        if(h.l <= 0) hearts.splice(i,1);
-    }
-    requestAnimationFrame(draw);
-} draw();
+function loopFx(){
+ ctx2.clearRect(0,0,fx.width,fx.height);
+ for(let i=hearts.length-1; i>=0; i--){
+  const h=hearts[i]; h.x+=h.vx; h.y+=h.vy; h.life-=0.015;
+  ctx2.globalAlpha=Math.max(0,h.life);
+  ctx2.font = "24px Arial"; ctx2.fillText("❤️", h.x, h.y);
+  if(h.life<=0) hearts.splice(i,1);
+ }
+ requestAnimationFrame(loopFx);
+} loopFx();
 
-} catch(e) { showError('Error: ' + e.message); }
+} catch(e) { showError('Error visual: ' + e.message); }
 })();
 </script>
 </body>
