@@ -16,7 +16,6 @@
  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;font:12px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial}
  .error{position:fixed;inset:auto 10px 70px 10px;background:#260015;color:#ffd9f7;border:1px solid #ff8ae5;border-radius:10px;padding:10px;font:12px system-ui;display:none;}
  </style>
- <!-- CARGA DE LIBRERIAS ORIGINALES -->
  <script src="https://cdn.jsdelivr.net"></script>
  <script src="https://cdn.jsdelivr.net"></script>
 </head>
@@ -41,23 +40,15 @@ function showError(msg){ err.textContent = msg; err.style.display='block'; }
 const audio = document.getElementById('audio');
 const playBtn = document.getElementById('playBtn');
 
-// Control de Audio
 playBtn.onclick = async () => {
- try { 
-  if (audio.paused) { await audio.play(); playBtn.textContent='⏸'; } 
-  else { audio.pause(); playBtn.textContent='▶'; } 
- } catch(e){ showError('Haz clic en la pantalla primero.'); }
+ try { if (audio.paused) { await audio.play(); playBtn.textContent='⏸'; } else { audio.pause(); playBtn.textContent='▶'; } }
+ catch(e){ showError('Toca la pantalla para activar el sonido.'); }
 };
 
-// Activar sonido con el primer clic para la galaxia
 document.addEventListener('click', () => {
-    if(audio.paused) {
-        audio.play().catch(()=>{});
-        playBtn.textContent='⏸';
-    }
+    if(audio.paused) { audio.play().catch(()=>{}); playBtn.textContent='⏸'; }
 }, {once: true});
 
-// ====== RENDERIZADO DE LA GALAXIA (RESTAURADO) ======
 try {
 const canvas = document.getElementById('galaxy-canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
@@ -78,26 +69,31 @@ function setCam(){
  camera.updateProjectionMatrix();
 } setCam();
 
-// Estrellas de fondo reales
 function makePrettyStarTexture(size=1024, count=2600) {
  const c = document.createElement('canvas'); c.width = c.height = size;
  const g = c.getContext('2d');
- g.fillStyle = '#000'; g.fillRect(0,0,size,size);
+ const r = size/2;
+ const bg = g.createRadialGradient(r,r, r*0.2, r,r, r);
+ bg.addColorStop(0,'#050010'); bg.addColorStop(1,'#000000');
+ g.fillStyle = bg; g.fillRect(0,0,size,size);
  for (let i=0;i<count;i++) {
   const x = Math.random()*size, y = Math.random()*size;
-  g.fillStyle = 'rgba(255,255,255,'+(Math.random()*0.8)+')';
-  g.beginPath(); g.arc(x,y, Math.random()*1.2+0.6, 0, Math.PI*2); g.fill();
+  const base = Math.random()*0.7 + 0.3;
+  const glow = g.createRadialGradient(x,y,0, x,y, Math.random()*2.2+1.6);
+  glow.addColorStop(0, 'rgba(255,255,255,'+(0.65*base)+')');
+  glow.addColorStop(1, 'rgba(180,190,255,0)');
+  g.fillStyle = glow; g.beginPath(); g.arc(x,y, Math.random()*1.2+0.6, 0, Math.PI*2); g.fill();
  }
  return new THREE.CanvasTexture(c);
 }
+
 const bgGeo = new THREE.SphereGeometry(600, 64, 64);
 const starTex = makePrettyStarTexture();
 const bg = new THREE.Mesh(bgGeo, new THREE.MeshBasicMaterial({ map: starTex, side: THREE.BackSide }));
 scene.add(bg);
 
-// Frases en espiral (Lógica del PDF original)
 const galaxy = new THREE.Group(); scene.add(galaxy);
-const phrases = ["Pinchecha", "Hermosa", "Mi Bebe", "Mi Cielito", "Hermosota", "Te Amo", "Mi Reina", "Mi Amor", "Te Amo Infinitamente"];
+const phrases = ["Pinchecha", "Hermosa", "Mi Bebe", "Mi Cielito", "Hermosota", "Te Amo", "Mi Reina", "Mi Amor", "Te Amo Infinitamente", "Nathy", "Mi Todo", "Me Encantas"];
 const phraseCount = 180;
 const arms = 5, radius = 82;
 
@@ -105,8 +101,8 @@ function makeTextTexture(text){
  const c=document.createElement('canvas'); c.width=1024; c.height=128;
  const g=c.getContext('2d');
  g.font='800 48px Arial'; g.textAlign='center'; g.textBaseline='middle';
- g.fillStyle='#fff'; g.shadowColor='rgba(210,140,255,0.95)'; g.shadowBlur=24;
- g.fillText(text,512,64);
+ g.shadowColor='rgba(210,140,255,0.95)'; g.shadowBlur=24;
+ g.fillStyle='#fff'; g.fillText(text,512,64);
  return new THREE.CanvasTexture(c);
 }
 
@@ -117,23 +113,25 @@ for(let i=0;i<phraseCount;i++){
  const ang = (i%perArm)*(Math.PI*2/perArm);
  const armAng = Math.floor(i/perArm)*(Math.PI*2/arms);
  const dist = Math.pow(i/phraseCount,0.72)*radius;
- spr.position.set(Math.cos(ang+armAng)*dist, (Math.random()-0.5)*10, Math.sin(ang+armAng)*dist);
+ const thickness = Math.pow(1-(dist/radius),2);
+ spr.position.set(Math.cos(ang+armAng)*dist, (Math.random()-0.5)*22*thickness, Math.sin(ang+armAng)*dist);
  spr.scale.set(20,2.6,1); galaxy.add(spr);
 }
 
-// Núcleo de la galaxia
 const core = new THREE.Mesh(new THREE.SphereGeometry(12,64,64), new THREE.MeshBasicMaterial({ color: 0x140018 }));
 scene.add(core);
 
+let tw = 0;
 function animate(){
  requestAnimationFrame(animate);
  const t = performance.now()*0.001;
+ tw = (tw + 0.0003) % 1;
+ starTex.offset.set(tw, 0);
  galaxy.rotation.y = t * 0.05;
  controls.update();
  renderer.render(scene, camera);
 } animate();
 
-// Efecto de corazones
 const fx = document.getElementById('fx');
 const ctx2 = fx.getContext('2d');
 const hearts = [];
@@ -141,7 +139,7 @@ function resizeFx(){ fx.width = innerWidth; fx.height = innerHeight; }
 addEventListener('resize', resizeFx); resizeFx();
 
 addEventListener('click', (e)=>{
- for(let i=0;i<12;i++) hearts.push({x:e.clientX, y:e.clientY, vx:(Math.random()-0.5)*5, vy:(Math.random()-1)*5, life:1});
+ for(let i=0;i<15;i++) hearts.push({x:e.clientX, y:e.clientY, vx:(Math.random()-0.5)*5, vy:(Math.random()-1)*5, life:1});
 });
 
 function loopFx(){
