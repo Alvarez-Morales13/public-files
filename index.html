@@ -27,9 +27,9 @@
 <div class="player">
  <button id="playBtn">▶</button>
  <span style="font-size:12px;opacity:.9">Escuchando: <b>Margaret - Lana Del Rey</b></span>
- <audio id="audio" preload="auto" loop>
-  <!-- Esto buscará el archivo margaret.mp3 que está en tu GitHub -->
-  <source src="margaret.mp3" type="audio/mpeg">
+ <audio id="audio" preload="auto" crossorigin="anonymous" loop>
+  <!-- USANDO EL LINK DIRECTO DE TU GITHUB -->
+  <source src="https://raw.githubusercontent.com" type="audio/mpeg">
  </audio>
 </div>
 <canvas id="fx" style="position:fixed;inset:0;pointer-events:none;"></canvas>
@@ -37,27 +37,24 @@
 <script>
 (function(){
 const err = document.getElementById('err');
-function showError(msg){ err.textContent = msg; err.style.display='block'; }
+function showError(msg){ err.textContent = msg; err.style.display='block'; setTimeout(()=>err.style.display='none', 3000); }
 const audio = document.getElementById('audio');
 const playBtn = document.getElementById('playBtn');
 
-// Reproducción al hacer clic
 playBtn.onclick = async () => {
  try { 
   if (audio.paused) { await audio.play(); playBtn.textContent='⏸'; } 
   else { audio.pause(); playBtn.textContent='▶'; } 
- } catch(e){ showError('Haz clic en la pantalla para activar el sonido.'); }
+ } catch(e){ showError('Haz clic en la pantalla para activar el sonido'); }
 };
 
-// Iniciar audio al primer clic en cualquier parte (Requerido por navegadores)
 document.addEventListener('click', () => {
     if(audio.paused) {
-        audio.play().catch(()=>{});
-        playBtn.textContent='⏸';
+        audio.play().then(() => playBtn.textContent='⏸').catch(()=>{});
     }
 }, {once: true});
 
-// ====== LÓGICA DE LA GALAXIA COMPLETA ======
+// ====== LÓGICA DE LA GALAXIA ======
 try {
 const canvas = document.getElementById('galaxy-canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
@@ -68,14 +65,12 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHei
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 camera.position.set(0, 22, 75);
 
-// Estrellas
 const starGeo = new THREE.BufferGeometry();
-const starPos = new Float32Array(8000 * 3);
-for(let i=0; i<8000*3; i++) starPos[i] = (Math.random() - 0.5) * 1000;
+const starPos = new Float32Array(6000 * 3);
+for(let i=0; i<6000*3; i++) starPos[i] = (Math.random() - 0.5) * 1000;
 starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xffffff, size: 0.5})));
+scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xffffff, size: 0.7})));
 
-// Grupo de la galaxia y frases
 const galaxy = new THREE.Group();
 scene.add(galaxy);
 const phrases = ["Te Amo", "Pinchecha", "Hermosa", "Mi Reina", "Nathy", "Mi Todo", "Infinitamente"];
@@ -83,28 +78,28 @@ const phrases = ["Te Amo", "Pinchecha", "Hermosa", "Mi Reina", "Nathy", "Mi Todo
 function makeText(txt) {
     const c = document.createElement('canvas'); c.width = 512; c.height = 64;
     const g = c.getContext('2d');
-    g.font = 'bold 30px Arial'; g.fillStyle = 'white'; g.textAlign = 'center';
+    g.font = 'bold 32px Arial'; g.fillStyle = 'white'; g.textAlign = 'center';
+    g.shadowColor = 'rgba(255,100,255,0.8)'; g.shadowBlur = 10;
     g.fillText(txt, 256, 40);
     return new THREE.CanvasTexture(c);
 }
 
 for(let i=0; i<150; i++) {
-    const mat = new THREE.SpriteMaterial({ map: makeText(phrases[i % phrases.length]) });
+    const mat = new THREE.SpriteMaterial({ map: makeText(phrases[i % phrases.length]), transparent: true });
     const sp = new THREE.Sprite(mat);
-    const ang = i * 0.2; const dist = Math.pow(i/150, 0.7) * 80;
-    sp.position.set(Math.cos(ang)*dist, (Math.random()-0.5)*10, Math.sin(ang)*dist);
-    sp.scale.set(15, 2, 1);
+    const ang = i * 0.2; const dist = Math.pow(i/150, 0.7) * 85;
+    sp.position.set(Math.cos(ang)*dist, (Math.random()-0.5)*12, Math.sin(ang)*dist);
+    sp.scale.set(18, 2.5, 1);
     galaxy.add(sp);
 }
 
 function animate(){
     requestAnimationFrame(animate);
-    galaxy.rotation.y += 0.002;
+    galaxy.rotation.y += 0.0015;
     controls.update();
     renderer.render(scene, camera);
 } animate();
 
-// Corazones
 const fx = document.getElementById('fx');
 const ctx = fx.getContext('2d');
 const hearts = [];
@@ -112,21 +107,21 @@ function resize(){ fx.width = innerWidth; fx.height = innerHeight; }
 window.onresize = resize; resize();
 
 addEventListener('click', (e) => {
-    for(let i=0; i<10; i++) hearts.push({x:e.clientX, y:e.clientY, vx:(Math.random()-0.5)*4, vy:(Math.random()-1)*4, l:1});
+    for(let i=0; i<8; i++) hearts.push({x:e.clientX, y:e.clientY, vx:(Math.random()-0.5)*5, vy:(Math.random()-1)*5, l:1});
 });
 
 function draw(){
     ctx.clearRect(0,0,fx.width,fx.height);
-    hearts.forEach((h,i) => {
-        h.x+=h.vx; h.y+=h.vy; h.l-=0.02;
-        ctx.font = "20px Arial"; ctx.globalAlpha = h.l;
+    for(let i=hearts.length-1; i>=0; i--){
+        const h = hearts[i]; h.x+=h.vx; h.y+=h.vy; h.l-=0.015;
+        ctx.font = "24px Arial"; ctx.globalAlpha = h.l;
         ctx.fillText("❤️", h.x, h.y);
         if(h.l <= 0) hearts.splice(i,1);
-    });
+    }
     requestAnimationFrame(draw);
 } draw();
 
-} catch(e) { showError('Error: ' + e.message); }
+} catch(e) { console.error(e); }
 })();
 </script>
 </body>
