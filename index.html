@@ -2,116 +2,67 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>Galaxia para ti</title>
+  <title>Galaxia Corregida</title>
   <style>
-    html,body{margin:0;height:100%;background:#000;overflow:hidden}
-    #galaxy-canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
-    .player{position:fixed;left:10px;right:10px;bottom:10px;display:flex;gap:8px;align-items:center;
-             background:rgba(20,15,35,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:8px;
-             backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-family:system-ui,Arial}
-    .pill{position:fixed;top:10px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:999px;
-          background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;font:12px system-ui;z-index:100;}
+    body { margin: 0; background: #000; overflow: hidden; }
+    #galaxy-canvas { width: 100vw; height: 100vh; display: block; }
+    .pill { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); padding: 10px 20px; 
+           background: rgba(255,255,255,0.1); border: 1px solid white; color: white; border-radius: 20px; z-index: 100; font-family: sans-serif; }
   </style>
-
-  <!-- LIBRERÍAS CORREGIDAS (Para evitar el error THREE is not defined) -->
   <script src="https://cdnjs.cloudflare.com"></script>
   <script src="https://cdn.jsdelivr.net"></script>
 </head>
 <body>
 
+<div class="pill">Toca la pantalla para activar la galaxia ✨</div>
 <canvas id="galaxy-canvas"></canvas>
-<div class="pill">Te Amo Infinitamente Mi Princesa Hermosa 💜</div>
-
-<div class="player">
-  <span style="font-size:12px;opacity:.9">Reproduciendo: <b>Margaret - Lana Del Rey</b> 💙🌹♥️</span>
-  <div id="yt-player"></div>
-</div>
 
 <script>
-// ====== AUDIO (YOUTUBE FIJO) ======
-var tag = document.createElement('script');
-tag.src = "https://www.youtube.com";
-var firstScriptTag = document.getElementsByTagName('script')[0];
-firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  const canvas = document.getElementById('galaxy-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x020205); // Fondo azul muy oscuro para verificar carga
 
-let player;
-window.onYouTubeIframeAPIReady = function() {
-  player = new YT.Player('yt-player', {
-    height: '40',
-    width: '200',
-    videoId: 'qJ6AtTioUTo', // ID de Margaret
-    playerVars: { 'autoplay': 1, 'controls': 1, 'loop': 1, 'playlist': 'qJ6AtTioUTo' },
-    events: {
-      'onReady': (event) => {
-        document.body.addEventListener('click', () => {
-          event.target.playVideo();
-        }, { once: true });
-      }
-    }
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+  camera.position.set(0, 50, 150); // Cámara posicionada para ver desde arriba
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+  // Crear Galaxia
+  const starGeo = new THREE.BufferGeometry();
+  const starCount = 8000;
+  const positions = new Float32Array(starCount * 3);
+
+  for (let i = 0; i < starCount * 3; i++) {
+    positions[i] = (Math.random() - 0.5) * 600;
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  // Material con puntos más grandes y brillantes
+  const starMat = new THREE.PointsMaterial({ 
+    size: 1.5, 
+    color: 0xffffff, 
+    transparent: true, 
+    opacity: 0.8 
   });
-};
 
-// ====== THREE.JS GALAXY ======
-(function(){
-  try {
-    const canvas = document.getElementById('galaxy-canvas');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+  const stars = new THREE.Points(starGeo, starMat);
+  scene.add(stars);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    stars.rotation.y += 0.001; // Movimiento constante
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.z = 100;
-
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-
-    // Estrellas
-    const starGeo = new THREE.BufferGeometry();
-    const starCount = 6000;
-    const posArray = new Float32Array(starCount * 3);
-    for(let i=0; i<starCount*3; i++) {
-        posArray[i] = (Math.random() - 0.5) * 800;
-    }
-    starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-    const starMat = new THREE.PointsMaterial({ size: 0.8, color: 0xffffff });
-    const stars = new THREE.Points(starGeo, starMat);
-    scene.add(stars);
-
-    // Frases
-    const phrases = ["Pinchecha ", "Hermosa ", "Mi Bebe", "Nathy ", "Te Amo ", "Mi Reina ", "Mi Todo"];
-    phrases.forEach((text) => {
-        const canvasTxt = document.createElement('canvas');
-        const ctx = canvasTxt.getContext('2d');
-        canvasTxt.width = 512; canvasTxt.height = 128;
-        ctx.font = 'Bold 40px Arial';
-        ctx.fillStyle = 'white';
-        ctx.textAlign = 'center';
-        ctx.fillText(text, 256, 64);
-        const texture = new THREE.CanvasTexture(canvasTxt);
-        const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-        const sprite = new THREE.Sprite(material);
-        sprite.position.set((Math.random()-0.5)*200, (Math.random()-0.5)*200, (Math.random()-0.5)*200);
-        sprite.scale.set(40, 10, 1);
-        scene.add(sprite);
-    });
-
-    function animate() {
-        requestAnimationFrame(animate);
-        stars.rotation.y += 0.0005;
-        controls.update();
-        renderer.render(scene, camera);
-    }
-    animate();
-
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-  } catch(e) { console.error(e); }
-})();
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  });
 </script>
 </body>
 </html>
